@@ -379,6 +379,45 @@ class TimescaleClient:
         self._log("query", "ohlc", f"Retrieved {len(result)} bars", duration)
         return result
 
+    async def compute_ohlc_from_ticks(
+        self,
+        symbol: str,
+        interval_seconds: int,
+        start_time: datetime,
+        end_time: datetime,
+        limit: int = 500
+    ) -> List[Dict]:
+        """
+        Compute OHLC bars on-the-fly from raw ticks using SQL aggregation.
+
+        This is a fallback when pre-computed OHLC data is not available.
+        """
+        start = time.time()
+
+        # Use TimescaleDB time_bucket for efficient aggregation
+        interval_str = f'{interval_seconds} seconds'
+
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT
+                    time_bucket($1::interval, time) AS time,
+                    (array_agg(price ORDER BY time ASC))[1] AS open,
+                    MAX(price) AS high,
+                    MIN(price) AS low,
+                    (array_agg(price ORDER BY time DESC))[1] AS close,
+                    SUM(qty) AS volume,
+                    COUNT(*) AS trade_count
+                FROM ticks
+                WHERE symbol = $2 AND time >= $3 AND time <= $4
+                GROUP BY time_bucket($1::interval, time)
+                ORDER BY time ASC
+                LIMIT $5
+            """, interval_str, symbol.upper(), start_time, end_time, limit)
+
+        result = [dict(row) for row in rows]
+        duration = (time.time() - start) * 1000
+        self._log("query", "ticks->ohlc", f"Computed {len(result)} bars from ticks", duration)
+        return result
     async def get_analytics_history(
         self,
         symbol: str,
@@ -403,6 +442,54 @@ class TimescaleClient:
         self._log("query", "analytics_snapshots", f"Retrieved {len(result)} snapshots", duration)
         return result
 
+    async def get_pair_analytics_history(
+        self,
+        symbol_a: str,
+        symbol_b: str,
+        start_time: datetime,
+        end_time: datetime,
+        limit: int = 1000
+    ) -> List[Dict]:
+        """
+        Query historical pair analytics snapshots for charting.
+
+        Args:
+            symbol_a: First symbol of the pair
+            symbol_b: Second symbol of the pair
+            start_time: Start of range
+            end_time: End of range
+            limit: Maximum rows to return
+
+        Returns:
+            List of analytics dictionaries with time, spread, z_score, etc.
+        """
+        start = time.time()
+        pair_symbol = symbol_b.upper()
+
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT
+                    time,
+                    symbol,
+                    pair_symbol,
+                    spread,
+                    hedge_ratio,
+                    z_score,
+                    correlation,
+                    adf_statistic,
+                    adf_pvalue,
+                    is_stationary,
+                    tick_count
+                FROM analytics_snapshots
+                WHERE symbol = $1 AND pair_symbol = $2 AND time >= $3 AND time <= $4
+                ORDER BY time ASC
+                LIMIT $5
+            """, symbol_a.upper(), pair_symbol, start_time, end_time, limit)
+
+        result = [dict(row) for row in rows]
+        duration = (time.time() - start) * 1000
+        self._log("query", "analytics_snapshots", f"Retrieved {len(result)} pair snapshots", duration)
+        return result
     async def get_alerts_history(
         self,
         symbol: Optional[str] = None,

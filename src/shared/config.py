@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     ARCHIVE_INTERVAL_SECONDS: int = 60  # How often to archive to TimescaleDB
 
     API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
+    API_PORT: int = 8080
 
     LOG_DIR: str = "logs"
     LOG_MAX_SIZE_MB: int = 10

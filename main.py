@@ -174,12 +174,18 @@ async def main():
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, signal_handler)
 
+    executor = ThreadPoolExecutor(max_workers=1)
+    loop.run_in_executor(executor, run_api_server)
+
+    logger.info(f"API server starting at http://{settings.API_HOST}:{settings.API_PORT}")
+    logger.info(f"API docs at http://{settings.API_HOST}:{settings.API_PORT}/docs")
     try:
         await orchestrator.start_all_services()
     except KeyboardInterrupt:
         pass
     finally:
         await orchestrator.stop_all_services()
+        executor.shutdown(wait=False)
 
 
 if __name__ == "__main__":

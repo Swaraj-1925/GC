@@ -242,7 +242,10 @@ class QuantEngine:
         last_price = float(prices[-1])
         price_change_pct = None
         if len(prices) >= 2:
-            price_change_pct = ((prices[-1] - prices[0]) / prices[0]) * 100
+            if prices[0] != 0:
+                price_change_pct = ((prices[-1] - prices[0]) / prices[0]) * 100
+            else:
+                price_change_pct = 0.0
 
         # VWAP
         vwap = None
@@ -526,17 +529,17 @@ class QuantEngine:
                 ))
 
         # Data staleness alert
-        if snapshot.data_freshness_ms > 10000:  # 5 seconds stale
-            alerts.append(Alert(
-                id=str(uuid.uuid4()),
-                alert_type=AlertType.DATA_STALE,
-                symbol=snapshot.symbol,
-                message=f"Data stale: {snapshot.data_freshness_ms}ms since last tick",
-                timestamp=snapshot.timestamp,
-                severity=AlertSeverity.WARNING,
-                value=float(snapshot.data_freshness_ms),
-                threshold=5000.0
-            ))
+        # if snapshot.data_freshness_ms > 10000:  # 5 seconds stale
+        #     alerts.append(Alert(
+        #         id=str(uuid.uuid4()),
+        #         alert_type=AlertType.DATA_STALE,
+        #         symbol=snapshot.symbol,
+        #         message=f"Data stale: {snapshot.data_freshness_ms}ms since last tick",
+        #         timestamp=snapshot.timestamp,
+        #         severity=AlertSeverity.WARNING,
+        #         value=float(snapshot.data_freshness_ms),
+        #         threshold=5000.0
+        #     ))
 
         # Store alerts in Redis (hot storage) and publish to channel
         for alert in alerts:

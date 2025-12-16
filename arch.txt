@@ -1,0 +1,188 @@
+# Backend Architecture Guide
+
+This document presents the **definitive, consolidated backend architecture** for the assignment. It combines an **event-driven choreography model**, **sharded streams**, and **centralized logging** to deliver scalability, modularity, and production-grade observability.
+
+The design avoids monolithic control flows and instead relies on independent services communicating exclusively through Redis as an event bus.
+
+---
+
+## 1. High-Level Concept: Event Bus Architecture
+
+The system is composed of **four independent microservices**. These services never call each other directly. All interaction happens through Redis.
+
+**Design philosophy: *Fire and Forget***
+
+* Producers emit events without knowing who consumes them.
+* Consumers process events without knowing the source.
+* Observability services watch the system without slowing it down.
+
+This separation ensures that ingestion, analytics, logging, and persistence remain loosely coupled.
+
+---
+
+## 2. Infrastructure: Redis as the Central Bus
+
+Redis is the core infrastructure component and performs multiple roles simultaneously:
+
+1. **Message Broker (Redis Streams)**
+   Handles high-throughput, low-latency tick ingestion. Streams are **sharded by symbol** to avoid head-of-line blocking.
+
+2. **Time-Series Database (RedisTimeSeries)**
+   Stores recent price history and performs **automatic downsampling** (1s → 1m) using Redis rules instead of Python loops.
+
+3. **State Store (Redis Hashes)**
+   Maintains the latest analytics snapshot for fast frontend access.
+
+4. **Pub/Sub Channels**
+   Used for alerts and centralized logging.
+
+### Redis Key Schema
+
+| Type       | Key Pattern                   | Purpose                       | Retention   |
+| ---------- | ----------------------------- | ----------------------------- | ----------- |
+| Stream     | `stream:ticks:{SYMBOL}`       | Sharded real-time tick lane   | ~5 minutes  |
+| Stream     | `stream:ticks:{SYMBOL}:GHOST` | Simulated exchange ticks      | ~5 minutes  |
+| TimeSeries | `ts:price:{SYMBOL}`           | Raw tick-level price history  | 1 hour      |
+| TimeSeries | `ts:ohlc:{SYMBOL}:1m`         | Auto-resampled OHLC candles   | 24 hours    |
+| Hash       | `state:analytics:{SYMBOL}`    | Latest analytics snapshot     | Overwritten |
+| Channel    | `channel:alerts`              | Trading and risk alerts       | N/A         |
+| Channel    | `channel:logs`                | System logs and health events | N/A         |
+
+---
+
+## 3. Service Breakdown
+
+### Service A: MarketGateway (Producer)
+
+**Role:** Market data ingestion and normalization.
+
+**Responsibilities:**
+
+* Connects to Binance WebSocket
+* Normalizes tick data
+* Publishes events to sharded Redis streams
+* Writes raw prices to RedisTimeSeries
+
+**Key Features:**
+
+* Async WebSocket handling
+* Built-in latency measurement
+* Ghost exchange simulation for arbitrage analytics
+
+**Workflow:**
+
+1. Open WebSocket connection to Binance.
+2. Normalize incoming ticks into an internal format.
+3. Compute ingestion latency (`now - event_time`).
+4. Generate a synthetic “Ghost Exchange” tick with noise and delay.
+5. Publish real and ghost ticks to separate Redis streams.
+6. Periodically emit heartbeat logs.
+
+---
+
+### Service B: QuantEngine (Analytics Engine)
+
+**Role:** Real-time quantitative analytics.
+
+**Responsibilities:**
+
+* Consume ticks from symbol-specific streams
+* Maintain rolling windows in memory
+* Compute spreads, hedge ratios, z-scores, correlations, and risk metrics
+* Publish analytics snapshots and alerts
+
+**Key Features:**
+
+* Dynamic stream subscription via configuration
+* Sliding-window analytics using deques
+* Optimized recomputation (e.g., OLS recalculated once per minute)
+
+**Workflow:**
+
+1. On startup, load recent history from disk if required.
+2. Block on Redis streams using `XREAD`.
+3. Update rolling windows with new ticks.
+4. Compute analytics using vectorized operations.
+5. Write results to `state:analytics:{SYMBOL}`.
+6. Publish alerts and diagnostic logs when thresholds are crossed.
+
+---
+
+### Service C: CentralLogger (Observability)
+
+**Role:** Centralized logging and system visibility.
+
+**Why separate:** Disk I/O is slow. Logging is isolated to avoid slowing ingestion or analytics.
+
+**Responsibilities:**
+
+* Subscribe to the logging channel
+* Persist structured logs to disk with rotation
+* Optionally forward error-level logs to external systems
+
+**Workflow:**
+
+1. Listen to `channel:logs`.
+2. Parse structured log messages.
+3. Write to rotating log files.
+
+---
+
+### Service D: Archivist (Persistence)
+
+**Role:** Long-term storage and data export.
+
+**Responsibilities:**
+
+* Periodically snapshot RedisTimeSeries data
+* Convert to columnar format
+* Persist to disk for later analysis and download
+
+**Workflow:**
+
+1. Wake on a fixed interval (e.g., every 10 minutes).
+2. Query RedisTimeSeries for recent data.
+3. Convert results into a Pandas DataFrame.
+4. Append data to Parquet files.
+5. Expose files to the API for user downloads.
+
+**Why Parquet:**
+
+* High compression
+* Fast reads for analytics and backtesting
+
+---
+
+## 4. End-to-End Data Lifecycle
+
+1. Binance emits a trade event.
+2. MarketGateway receives and normalizes the tick.
+3. Real and ghost ticks are published to Redis streams.
+4. QuantEngine consumes the tick and updates analytics state.
+5. Alerts and logs are published via Redis Pub/Sub.
+6. CentralLogger persists logs asynchronously.
+7. Frontend polls analytics state and updates visuals.
+8. Archivist periodically saves historical data to disk.
+
+---
+
+## 5. Architectural Advantages
+
+* **Scalability:** Symbol-level sharding enables horizontal scaling.
+* **Resilience:** Failure of any single service does not halt the system.
+* **Low Latency:** Hot paths avoid disk and synchronous calls.
+* **Extensibility:** New data sources or analytics can be added without redesign.
+* **Clarity:** Each service has a single, well-defined responsibility.
+
+---
+
+## 6. Summary
+
+This backend architecture demonstrates:
+
+* Event-driven design
+* Clear separation of concerns
+* Production-aware trade-offs
+* Business-relevant analytics
+
+It is intentionally designed as a prototype that can evolve into a full real-time analytics stack without fundamental changes.

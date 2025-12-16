@@ -203,8 +203,8 @@ class MarketGateway:
             self.state.tick_count[symbol] = self.state.tick_count.get(symbol, 0) + 1
             self.state.last_tick_time[symbol] = now
 
-            if latency_ms > 5000:
-                logger.warning(f"High latency for {symbol}: {latency_ms}ms")
+            # if latency_ms > 5000:
+            #     logger.warning(f"High latency for {symbol}: {latency_ms}ms")
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse message: {e}")
         except Exception as e:
