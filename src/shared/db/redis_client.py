@@ -138,6 +138,34 @@ class RedisClient:
         self._log("stream_read", ",".join(keys), f"Read {len(result) if result else 0} entries", duration)
         return result or []
 
+    async def stream_xrange(
+        self,
+        stream_key: str,
+        start_id: str = "-",
+        end_id: str = "+",
+        count: Optional[int] = None
+    ) -> List:
+        """
+        Read entries from a stream within a time range using XRANGE.
+
+        Args:
+            stream_key: Stream name
+            start_id: Start ID (use '-' for oldest, or timestamp-0 for time-based)
+            end_id: End ID (use '+' for newest, or timestamp-0 for time-based)
+            count: Optional max entries to return
+
+        Returns:
+            List of (entry_id, data_dict) tuples
+        """
+        start = time.time()
+        if count:
+            result = await self._client.xrange(stream_key, start_id, end_id, count=count)
+        else:
+            result = await self._client.xrange(stream_key, start_id, end_id)
+        duration = (time.time() - start) * 1000
+        self._log("stream_xrange", stream_key, f"Read {len(result) if result else 0} entries", duration)
+        return result or []
+
     async def stream_read_group(
         self,
         group_name: str,

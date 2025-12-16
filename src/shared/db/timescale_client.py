@@ -392,15 +392,16 @@ class TimescaleClient:
 
         This is a fallback when pre-computed OHLC data is not available.
         """
+        from datetime import timedelta
         start = time.time()
 
-        # Use TimescaleDB time_bucket for efficient aggregation
-        interval_str = f'{interval_seconds} seconds'
+        # Use timedelta for asyncpg - it converts to PostgreSQL interval correctly
+        interval_td = timedelta(seconds=interval_seconds)
 
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("""
                 SELECT
-                    time_bucket($1::interval, time) AS time,
+                    time_bucket($1, time) AS time,
                     (array_agg(price ORDER BY time ASC))[1] AS open,
                     MAX(price) AS high,
                     MIN(price) AS low,
@@ -409,10 +410,10 @@ class TimescaleClient:
                     COUNT(*) AS trade_count
                 FROM ticks
                 WHERE symbol = $2 AND time >= $3 AND time <= $4
-                GROUP BY time_bucket($1::interval, time)
+                GROUP BY time_bucket($1, time)
                 ORDER BY time ASC
                 LIMIT $5
-            """, interval_str, symbol.upper(), start_time, end_time, limit)
+            """, interval_td, symbol.upper(), start_time, end_time, limit)
 
         result = [dict(row) for row in rows]
         duration = (time.time() - start) * 1000

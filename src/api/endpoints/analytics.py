@@ -345,43 +345,179 @@ async def compute_analytics_on_demand(
 async def get_ohlc(
     symbol: str,
     interval: str = Query("1m", description="Candle interval (1s, 1m, 5m)"),
-    limit: int = Query(100, ge=1, le=1000, description="Number of bars to return"),
+    limit: int = Query(500, ge=1, le=1500, description="Number of bars to return"),
     from_time: Optional[int] = Query(None, description="Start timestamp (seconds)"),
     to_time: Optional[int] = Query(None, description="End timestamp (seconds)"),
+    redis: RedisClient = Depends(get_redis),
     timescale: TimescaleClient = Depends(get_timescale)
 ) -> List[OHLCBar]:
     """
     Get OHLC candlestick data for charting.
 
+    Priority:
+    1. Redis TimeSeries (hot storage, last 24h of data)
+    2. TimescaleDB pre-computed OHLC
+    3. TimescaleDB computed from raw ticks
+
     Returns bars in TradingView-compatible format.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Interval mapping
+    interval_map = {"1s": 1, "1m": 60, "5m": 300}
+    interval_secs = interval_map.get(interval, 60)
+    interval_ms = interval_secs * 1000
 
     # Default time range: last 24 hours
-    now = datetime.utcnow()
-    end_time = datetime.fromtimestamp(to_time) if to_time else now
-    start_time = datetime.fromtimestamp(from_time) if from_time else now - timedelta(hours=24)
+    now_ms = int(time.time() * 1000)
+    to_ts_ms = (to_time * 1000) if to_time else now_ms
+    from_ts_ms = (from_time * 1000) if from_time else now_ms - (24 * 60 * 60 * 1000)
+    
+    logger.info(f"[OHLC] Request: {symbol} interval={interval} from={from_ts_ms} to={to_ts_ms}")
 
+    bars = []
+
+    # ===== Option 0: Try Redis Streams (tick stream) - Best coverage =====
     try:
-        bars = await timescale.get_ohlc(
-            symbol.upper(),
-            interval,
-            start_time,
-            end_time,
-            limit
-        )
+        stream_key = RedisKeys.tick_stream(symbol.upper())
+        logger.info(f"[OHLC] Trying Redis Stream: {stream_key}")
+        
+        # Read tick stream using XRANGE with timestamp-based IDs
+        start_id = f"{from_ts_ms}-0"
+        end_id = f"{to_ts_ms}-0"
+        
+        ticks = await redis.stream_xrange(stream_key, start_id, end_id)
+        logger.info(f"[OHLC] Redis Stream returned {len(ticks) if ticks else 0} ticks")
+        
+        if ticks and len(ticks) > 0:
+            # Group ticks into OHLC buckets
+            buckets = {}
+            for entry_id, tick_data in ticks:
+                # Parse tick data
+                ts = int(tick_data.get('timestamp', entry_id.split('-')[0]))
+                price = float(tick_data.get('price', 0))
+                qty = float(tick_data.get('qty', 0))
+                
+                if price <= 0:
+                    continue
+                
+                # Calculate bucket start time (seconds)
+                bucket_time = (ts // 1000 // interval_secs) * interval_secs
+                
+                if bucket_time not in buckets:
+                    buckets[bucket_time] = {
+                        'time': bucket_time,
+                        'open': price,
+                        'high': price,
+                        'low': price,
+                        'close': price,
+                        'volume': qty,
+                        'first_ts': ts,
+                        'last_ts': ts,
+                        'count': 1
+                    }
+                else:
+                    b = buckets[bucket_time]
+                    b['high'] = max(b['high'], price)
+                    b['low'] = min(b['low'], price)
+                    b['volume'] = b.get('volume', 0) + qty
+                    # Update open if this is earlier
+                    if ts < b['first_ts']:
+                        b['open'] = price
+                        b['first_ts'] = ts
+                    # Update close if this is later
+                    if ts >= b['last_ts']:
+                        b['close'] = price
+                        b['last_ts'] = ts
+                    b['count'] += 1
+            
+            # Sort by time and take last N bars
+            sorted_bars = sorted(buckets.values(), key=lambda x: x['time'])
+            bars = sorted_bars[-limit:] if len(sorted_bars) > limit else sorted_bars
+            logger.info(f"[OHLC] Redis Stream computed {len(bars)} bars from {len(buckets)} buckets")
+            
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error fetching OHLC data: {e}"
-        )
-    # Fallback: If no pre-computed OHLC, compute from raw ticks
+        logger.warning(f"[OHLC] Redis Stream failed: {e}")
+
+    # ===== Option 1: Try Redis TimeSeries (fallback) =====
     if not bars:
         try:
-            # Get interval in seconds
-            interval_map = {"1s": 1, "1m": 60, "5m": 300}
-            interval_secs = interval_map.get(interval, 60)
+            ts_key = RedisKeys.price_timeseries(symbol.upper())
+            logger.info(f"[OHLC] Trying Redis TimeSeries: {ts_key}")
+            
+            # Get raw price data from Redis TimeSeries
+            raw_data = await redis.ts_range(ts_key, from_ts_ms, to_ts_ms)
+            
+            logger.info(f"[OHLC] Redis returned {len(raw_data) if raw_data else 0} samples")
+            
+            if raw_data and len(raw_data) > 0:
+                # Group prices into time buckets to compute OHLC
+                buckets = {}
+                for point in raw_data:
+                    ts = int(point[0])  # timestamp in ms
+                    price = float(point[1])
+                    
+                    # Calculate bucket start time (seconds)
+                    bucket_time = (ts // 1000 // interval_secs) * interval_secs
+                    
+                    if bucket_time not in buckets:
+                        buckets[bucket_time] = {
+                            'time': bucket_time,
+                            'open': price,
+                            'high': price,
+                            'low': price,
+                            'close': price,
+                            'first_ts': ts,
+                            'last_ts': ts,
+                            'count': 1
+                        }
+                    else:
+                        b = buckets[bucket_time]
+                        b['high'] = max(b['high'], price)
+                        b['low'] = min(b['low'], price)
+                        # Update open if this is earlier
+                        if ts < b['first_ts']:
+                            b['open'] = price
+                            b['first_ts'] = ts
+                        # Update close if this is later
+                        if ts >= b['last_ts']:
+                            b['close'] = price
+                            b['last_ts'] = ts
+                        b['count'] += 1
+                
+                # Sort by time and take last N bars
+                sorted_bars = sorted(buckets.values(), key=lambda x: x['time'])
+                bars = sorted_bars[-limit:] if len(sorted_bars) > limit else sorted_bars
+                logger.info(f"[OHLC] Redis TS computed {len(bars)} bars from {len(buckets)} buckets")
+                
+        except Exception as e:
+            logger.warning(f"[OHLC] Redis TimeSeries failed: {e}")
 
-            # Compute OHLC from ticks using SQL aggregation
+    # ===== Option 2: Try TimescaleDB pre-computed OHLC =====
+    if not bars:
+        now = datetime.utcnow()
+        end_time = datetime.fromtimestamp(to_time) if to_time else now
+        start_time = datetime.fromtimestamp(from_time) if from_time else now - timedelta(hours=24)
+        
+        try:
+            bars = await timescale.get_ohlc(
+                symbol.upper(),
+                interval,
+                start_time,
+                end_time,
+                limit
+            )
+        except Exception as e:
+            pass
+
+    # ===== Option 3: Compute from raw ticks in TimescaleDB =====
+    if not bars:
+        now = datetime.utcnow()
+        end_time = datetime.fromtimestamp(to_time) if to_time else now
+        start_time = datetime.fromtimestamp(from_time) if from_time else now - timedelta(hours=24)
+        
+        try:
             bars = await timescale.compute_ohlc_from_ticks(
                 symbol.upper(),
                 interval_secs,
@@ -391,22 +527,22 @@ async def get_ohlc(
             )
         except Exception as e:
             raise HTTPException(
-            status_code=500,
-            detail=f"Could not compute OHLC from ticks: {e}"
+                status_code=500,
+                detail=f"Could not get OHLC data: {e}"
             )
-            bars = []
 
     # Convert to TradingView format (time in seconds)
     return [
         OHLCBar(
-            time=int(bar["time"].timestamp()) if hasattr(bar["time"], "timestamp") else int(bar["time"]),
-            open=bar["open"],
-            high=bar["high"],
-            low=bar["low"],
-            close=bar["close"],
-            volume=bar.get("volume", 0)
+            time=int(bar["time"].timestamp()) if hasattr(bar.get("time"), "timestamp") else int(bar.get("time", 0)),
+            open=float(bar["open"]),
+            high=float(bar["high"]),
+            low=float(bar["low"]),
+            close=float(bar["close"]),
+            volume=float(bar.get("volume", bar.get("count", 0)))
         )
         for bar in bars
+        if bar.get("low", 0) > 0  # Filter invalid bars
     ]
 
 
