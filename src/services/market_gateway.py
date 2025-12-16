@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+from datetime import datetime, timezone
 import logging
 from typing import Dict, Optional, List, Set
 from dataclasses import dataclass, field
@@ -183,7 +184,6 @@ class MarketGateway:
                 isBuyerMaker=data["m"]
             )
 
-            # Measure ingestion latency
             now = int(time.time() * 1000)
             latency_ms = now - tick.timestamp
 
@@ -203,10 +203,8 @@ class MarketGateway:
             self.state.tick_count[symbol] = self.state.tick_count.get(symbol, 0) + 1
             self.state.last_tick_time[symbol] = now
 
-            # Log high latency
-            if latency_ms > 1000:
+            if latency_ms > 5000:
                 logger.warning(f"High latency for {symbol}: {latency_ms}ms")
-
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse message: {e}")
         except Exception as e:
