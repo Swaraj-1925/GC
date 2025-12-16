@@ -48,7 +48,7 @@ class TimescaleClient:
         )
 
         # Log connection (mask password in DSN for security)
-        safe_dsn = self.settings.TIMESCALE_URL.split("@")[-1] if "@" in dsn else dsn
+        safe_dsn = self.settings.TIMESCALE_URL.split("@")[-1] if "@" in self.settings.TIMESCALE_URL else "timescale db"
         self._log("connect", None, f"Connected to TimescaleDB: {safe_dsn}")
 
         # Initialize schema
