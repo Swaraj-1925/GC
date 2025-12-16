@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { useLightweightChart, useChartData } from '../hooks/useChartData';
 import { ChartToolbar } from './Header';
 
@@ -20,3 +20,4 @@ export function PriceChart() {
 }
 
 export default PriceChart;
+

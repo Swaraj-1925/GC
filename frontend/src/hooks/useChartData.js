@@ -113,7 +113,7 @@ export function useLightweightChart(containerRef) {
     const candleSeriesRef = useRef(null);
     const volumeSeriesRef = useRef(null);
 
-    const { ohlcData, chartType } = useAppStore();
+    const { ohlcData, chartType, setCrosshairOhlc } = useAppStore();
 
 
     // Initialize chart
@@ -130,7 +130,7 @@ export function useLightweightChart(containerRef) {
                 horzLines: { color: '#1e222d' },
             },
             crosshair: {
-                mode: 1,
+                mode: 0,  // 0 = Normal (free movement), 1 = Magnet (snaps to candles)
                 vertLine: {
                     color: '#758696',
                     width: 1,
@@ -156,8 +156,17 @@ export function useLightweightChart(containerRef) {
                 borderColor: '#363a45',
                 timeVisible: true,
                 secondsVisible: false,
-                barSpacing: 6,       // Default candle width
-                minBarSpacing: 1,    // Min width when zoomed out
+                barSpacing: 10,      // Wider candles for better visibility
+                minBarSpacing: 3,    // Min width when zoomed out
+                tickMarkFormatter: (time) => {
+                    // Format time as HH:MM for every candle
+                    const date = new Date(time * 1000);
+                    return date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                },
             },
             // Drag on chart to pan horizontally
             handleScroll: {
@@ -200,6 +209,26 @@ export function useLightweightChart(containerRef) {
         chartRef.current = chart;
         candleSeriesRef.current = candleSeries;
         volumeSeriesRef.current = volumeSeries;
+
+        // Handle crosshair move to show OHLC values on hover
+        chart.subscribeCrosshairMove((param) => {
+            if (!param.time || !param.seriesData.size) {
+                setCrosshairOhlc(null);
+                return;
+            }
+
+            // Get candle data at crosshair position
+            const candleData = param.seriesData.get(candleSeries);
+            if (candleData) {
+                setCrosshairOhlc({
+                    time: param.time,
+                    open: candleData.open,
+                    high: candleData.high,
+                    low: candleData.low,
+                    close: candleData.close,
+                });
+            }
+        });
 
         // Handle resize
         const handleResize = () => {

@@ -16,6 +16,7 @@ export const useAppStore = create((set, get) => ({
     // OHLC data
     ohlcData: [],
     currentCandle: null,
+    crosshairOhlc: null,  // OHLC values at crosshair position
 
     // Analytics
     analytics: null,
@@ -98,6 +99,7 @@ export const useAppStore = create((set, get) => ({
 
     setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
     setShowAlertModal: (show) => set({ showAlertModal: show }),
+    setCrosshairOhlc: (ohlc) => set({ crosshairOhlc: ohlc }),
 }));
 
 export default useAppStore;

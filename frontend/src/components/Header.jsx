@@ -19,14 +19,19 @@ export function Header() {
         pairSymbol,
         analytics,
         wsStatus,
-        setShowAlertModal
+        setShowAlertModal,
+        crosshairOhlc,
+        currentCandle
     } = useAppStore();
 
     const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
 
+    // Use crosshair OHLC if hovering, otherwise use current candle
+    const displayOhlc = crosshairOhlc || currentCandle;
+
     // Format price with commas
     const formatPrice = (price) => {
-        if (!price) return '--';
+        if (!price && price !== 0) return '--';
         return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
@@ -68,19 +73,23 @@ export function Header() {
                 <div className="ohlc-display">
                     <div className="ohlc-item">
                         <span className="ohlc-label">O</span>
-                        <span className="ohlc-value">{formatPrice(analytics?.last_price)}</span>
+                        <span className="ohlc-value">{formatPrice(displayOhlc?.open)}</span>
                     </div>
                     <div className="ohlc-item">
                         <span className="ohlc-label">H</span>
-                        <span className="ohlc-value">{formatPrice(analytics?.last_price)}</span>
+                        <span className="ohlc-value" style={{ color: 'var(--accent-green)' }}>
+                            {formatPrice(displayOhlc?.high)}
+                        </span>
                     </div>
                     <div className="ohlc-item">
                         <span className="ohlc-label">L</span>
-                        <span className="ohlc-value">{formatPrice(analytics?.last_price)}</span>
+                        <span className="ohlc-value" style={{ color: 'var(--accent-red)' }}>
+                            {formatPrice(displayOhlc?.low)}
+                        </span>
                     </div>
                     <div className="ohlc-item">
                         <span className="ohlc-label">C</span>
-                        <span className="ohlc-value">{formatPrice(analytics?.last_price)}</span>
+                        <span className="ohlc-value">{formatPrice(displayOhlc?.close)}</span>
                     </div>
 
                     {/* Price change badge */}
