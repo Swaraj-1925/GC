@@ -146,14 +146,32 @@ export function useLightweightChart(containerRef) {
             },
             rightPriceScale: {
                 borderColor: '#363a45',
+                autoScale: true,
+                scaleMargins: {
+                    top: 0.05,
+                    bottom: 0.25,  // Leave room for volume
+                },
             },
             timeScale: {
                 borderColor: '#363a45',
                 timeVisible: true,
                 secondsVisible: false,
+                barSpacing: 6,       // Default candle width
+                minBarSpacing: 1,    // Min width when zoomed out
             },
-            handleScroll: { vertTouchDrag: true },
-            handleScale: { axisPressedMouseMove: true },
+            // Drag on chart to pan horizontally
+            handleScroll: {
+                mouseWheel: false,    // Don't use wheel on chart area
+                pressedMouseMove: true,
+            },
+            // Scroll on axes to zoom
+            handleScale: {
+                mouseWheel: false,    // Don't use wheel on chart area
+                axisPressedMouseMove: {
+                    time: true,       // Drag on time axis = zoom X (candle width)
+                    price: true,      // Drag on price axis = zoom Y (candle height)
+                },
+            },
         });
 
         // Create candlestick series (v5 API)
@@ -251,7 +269,7 @@ export function useLightweightChart(containerRef) {
         } catch (err) {
             console.error('[Chart] Error setting data:', err);
         }
-    }, [ohlcData]);
+    }, [ohlcData, chartRef]);
 
     return { chart: chartRef, candleSeries: candleSeriesRef, volumeSeries: volumeSeriesRef };
 }
