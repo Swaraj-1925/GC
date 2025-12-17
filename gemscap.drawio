@@ -1,0 +1,97 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0" version="29.2.7">
+  <diagram id="DojKrRZ7Aw7ddccOWLtt" name="Page-1">
+    <mxGraphModel dx="2761" dy="2431" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="fMIDT-eWajqJVuVi-EQM-0" />
+        <mxCell id="fMIDT-eWajqJVuVi-EQM-1" parent="fMIDT-eWajqJVuVi-EQM-0" />
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-20" edge="1" parent="fMIDT-eWajqJVuVi-EQM-1" source="5WfRmLM7WEjLD31DWJrf-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="5WfRmLM7WEjLD31DWJrf-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-0" parent="fMIDT-eWajqJVuVi-EQM-1" style="whiteSpace=wrap;html=1;aspect=fixed;dashed=1;" value="Binance WebSocket API&lt;br&gt;wss://stream.binance.com&lt;br&gt;[External Data Source]" vertex="1">
+          <mxGeometry height="200" width="200" x="-150" y="-210" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-32" edge="1" parent="fMIDT-eWajqJVuVi-EQM-1" source="5WfRmLM7WEjLD31DWJrf-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="5WfRmLM7WEjLD31DWJrf-31" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-1" parent="fMIDT-eWajqJVuVi-EQM-1" style="swimlane;whiteSpace=wrap;html=1;dashed=1; strokeColor=#48BB78; fillColor=#F0FFF4;" value="&lt;strong style=&quot;--tw-border-spacing-x: 0; --tw-border-spacing-y: 0; --tw-translate-x: 0; --tw-translate-y: 0; --tw-rotate: 0; --tw-skew-x: 0; --tw-skew-y: 0; --tw-scale-x: 1; --tw-scale-y: 1; --tw-pan-x: ; --tw-pan-y: ; --tw-pinch-zoom: ; --tw-scroll-snap-strictness: proximity; --tw-gradient-from-position: ; --tw-gradient-via-position: ; --tw-gradient-to-position: ; --tw-ordinal: ; --tw-slashed-zero: ; --tw-numeric-figure: ; --tw-numeric-spacing: ; --tw-numeric-fraction: ; --tw-ring-inset: ; --tw-ring-offset-width: 0px; --tw-ring-offset-color: #fff; --tw-ring-color: #007acc; --tw-ring-offset-shadow: 0 0 #0000; --tw-ring-shadow: 0 0 #0000; --tw-shadow: 0 0 #0000; --tw-shadow-colored: 0 0 #0000; --tw-blur: ; --tw-brightness: ; --tw-contrast: ; --tw-grayscale: ; --tw-hue-rotate: ; --tw-invert: ; --tw-saturate: ; --tw-sepia: ; --tw-drop-shadow: ; --tw-backdrop-blur: ; --tw-backdrop-brightness: ; --tw-backdrop-contrast: ; --tw-backdrop-grayscale: ; --tw-backdrop-hue-rotate: ; --tw-backdrop-invert: ; --tw-backdrop-opacity: ; --tw-backdrop-saturate: ; --tw-backdrop-sepia: ; --tw-contain-size: ; --tw-contain-layout: ; --tw-contain-paint: ; --tw-contain-style: ; box-sizing: border-box; scrollbar-color: rgba(128, 128, 128, 0.4) rgba(0, 0, 0, 0); color: rgb(97, 97, 97); font-family: system-ui, Ubuntu, &amp;quot;Droid Sans&amp;quot;, sans-serif; font-size: 14px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: left; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;&quot;&gt;MICROSERVICES LAYER&lt;/strong&gt;" vertex="1">
+          <mxGeometry height="200" width="1080" x="-590" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-2" parent="5WfRmLM7WEjLD31DWJrf-1" style="whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;strong&gt;Market Gateway&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;[Producer]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="200" x="40" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-3" parent="5WfRmLM7WEjLD31DWJrf-1" style="whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;Quant Engine&amp;nbsp;&amp;nbsp;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;[Consumer/Producer]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="200" x="280" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-8" parent="5WfRmLM7WEjLD31DWJrf-1" style="whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;Archivist&lt;/b&gt;&amp;nbsp;&lt;/div&gt;&lt;div&gt;[Consumer]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="200" x="520" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-9" parent="5WfRmLM7WEjLD31DWJrf-1" style="whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;Central Logger&amp;nbsp;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;[Observer]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="240" x="760" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-19" edge="1" parent="fMIDT-eWajqJVuVi-EQM-1" source="5WfRmLM7WEjLD31DWJrf-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="5WfRmLM7WEjLD31DWJrf-17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NFR7fbzYXlibEeyT7_e_-7" edge="1" parent="fMIDT-eWajqJVuVi-EQM-1" source="5WfRmLM7WEjLD31DWJrf-12" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="NFR7fbzYXlibEeyT7_e_-6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-12" parent="fMIDT-eWajqJVuVi-EQM-1" style="swimlane;whiteSpace=wrap;html=1;" value="HOT STORAGE (Redis) - 24h Retention" vertex="1">
+          <mxGeometry height="320" width="360" x="-545" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-13" parent="5WfRmLM7WEjLD31DWJrf-12" style="shape=datastore;whiteSpace=wrap;html=1;fillColor=#FFFFFF; strokeColor=#333333;" value="&lt;b&gt;Redis&lt;/b&gt;&lt;br&gt;- Streams: stream:ticks:{symbol}&lt;br&gt;- TimeSeries: ts:ohlc:{symbol}&lt;br&gt;- Hashes: state:analytics:{symbol}&lt;br&gt;- Pub/Sub: channel:alerts" vertex="1">
+          <mxGeometry height="210" width="245" x="70" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-17" parent="fMIDT-eWajqJVuVi-EQM-1" style="swimlane;whiteSpace=wrap;html=1;" value="COLD STORAGE (TimescaleDB) - Long-term" vertex="1">
+          <mxGeometry height="320" width="360" x="15" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-18" parent="5WfRmLM7WEjLD31DWJrf-17" style="shape=datastore;whiteSpace=wrap;html=1;fillColor=#FFFFFF; strokeColor=#333333;" value="TimescaleDB&lt;b&gt;&lt;br&gt;- hypertable: ticks&lt;br&gt;- hypertable: ohlc_candles&lt;br&gt;- hypertable: analytics&lt;br&gt;- table: uploaded_symbols&lt;/b&gt;" vertex="1">
+          <mxGeometry height="210" width="245" x="70" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-21" parent="fMIDT-eWajqJVuVi-EQM-1" style="swimlane;whiteSpace=wrap;html=1;dashed=1; strokeColor=#718096; fillColor=#F7F7F7;" value="&lt;strong&gt;API GATEWAY (FastAPI)&lt;/strong&gt;" vertex="1">
+          <mxGeometry height="320" width="360" x="-510" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-23" parent="fMIDT-eWajqJVuVi-EQM-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="FastAPI Server (Port 8000)&lt;br&gt;/api/analytics - Redis (live) + Timescale (history)&lt;br&gt;/api/candles - Redis (24h) + Timescale (history)&lt;br&gt;/api/upload - Redis (session) + Timescale (storage)&lt;br&gt;/ws/ticks - Redis Streams&lt;br&gt;/ws/ohlc - Redis TimeSeries" vertex="1">
+          <mxGeometry height="200" width="320" x="-490" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-24" parent="fMIDT-eWajqJVuVi-EQM-1" style="swimlane;whiteSpace=wrap;html=1;dashed=1; strokeColor=#718096; fillColor=#F7F7F7;" value="&lt;strong&gt;Frontend&lt;/strong&gt;" vertex="1">
+          <mxGeometry height="320" width="360" x="-5" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-25" parent="5WfRmLM7WEjLD31DWJrf-24" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Candlestick Chart - WebSocket Consumer&lt;br&gt;Analytics Panel - SSE Consumer&lt;br&gt;Alert Manager - State Subscription&lt;br&gt;Watchlist - REST Consumer" vertex="1">
+          <mxGeometry height="160" width="350" x="10" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-26" edge="1" parent="fMIDT-eWajqJVuVi-EQM-1" source="5WfRmLM7WEjLD31DWJrf-21" style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="5WfRmLM7WEjLD31DWJrf-24" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-255" y="1050" as="sourcePoint" />
+            <mxPoint x="-205" y="1000" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-27" edge="1" parent="fMIDT-eWajqJVuVi-EQM-1" style="edgeStyle=segmentEdgeStyle;endArrow=classic;html=1;curved=0;rounded=0;endSize=8;startSize=8;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="185" y="870" />
+              <mxPoint x="-340" y="870" />
+            </Array>
+            <mxPoint x="185" y="780" as="sourcePoint" />
+            <mxPoint x="-340" y="960" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-31" parent="fMIDT-eWajqJVuVi-EQM-1" style="shape=waypoint;sketch=0;size=6;pointerEvents=1;points=[];fillColor=default;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;fontStyle=1;startSize=23;dashed=1;" value="" vertex="1">
+          <mxGeometry height="20" width="20" x="-370" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="5WfRmLM7WEjLD31DWJrf-33" edge="1" parent="fMIDT-eWajqJVuVi-EQM-1" source="5WfRmLM7WEjLD31DWJrf-17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="5WfRmLM7WEjLD31DWJrf-31" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="185" y="450" />
+              <mxPoint x="185" y="360" />
+              <mxPoint x="-360" y="360" />
+            </Array>
+            <mxPoint x="-50" y="280" as="sourcePoint" />
+            <mxPoint x="-360" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="NFR7fbzYXlibEeyT7_e_-6" parent="fMIDT-eWajqJVuVi-EQM-1" style="shape=waypoint;sketch=0;size=6;pointerEvents=1;points=[];fillColor=default;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;fontStyle=1;startSize=23;" value="" vertex="1">
+          <mxGeometry height="20" width="20" x="-380" y="940" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
