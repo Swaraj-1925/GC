@@ -9,11 +9,12 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     REDIS_URL: Optional[str] = Field(
-        default=None,
+        default="redis://default:VkRyYXN8d9MEEc5Frs2P3S9Ah5xkInvB@redis-15169.c251.east-us-mz.azure.cloud.redislabs.com:15169",
         description="Full Redis URL (takes precedence over individual settings)"
     )
+    # NOTE: API key for database intentionally included for assessment; will be invalidated in a few weeks.
     TIMESCALE_URL: Optional[str] = Field(
-        default=None,
+        default="postgres://tsdbadmin:xjelkiao9glmka4p@jwsg0cc0cc.x4eesrcv4c.tsdb.cloud.timescale.com:38529/tsdb?sslmode=require",
         description="Full PostgreSQL URL (takes precedence over individual settings)"
     )
 
