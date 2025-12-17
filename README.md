@@ -35,11 +35,7 @@ The system utilizes a **Microservices-inspired Architecture** where each compone
     -   *Z-Score*: $Z = \frac{S - \mu}{\sigma}$ (Mean-reversion signal).
     -   *ADF Test*: Augmented Dickey-Fuller test for stationarity.
 -   **Central Logger**: Aggregates logs from all isolated threads into a unified stream.
-
-## Demo Video
-
-<video src="./GC_Demp.mp4" controls width="100%"></video>
-
+-   
 ## Screenshots
 
 ### Dashboard Overview
