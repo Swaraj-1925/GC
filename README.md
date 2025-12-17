@@ -36,9 +36,23 @@ The system utilizes a **Microservices-inspired Architecture** where each compone
     -   *ADF Test*: Augmented Dickey-Fuller test for stationarity.
 -   **Central Logger**: Aggregates logs from all isolated threads into a unified stream.
 
-<!-- VIDEO PLAYABLE LINK HERE -->
-![Demo Video](https://github.com/user/repo/assets/video_placeholder.mp4)
-*(Note: Video uploaded to GitHub)*
+## Demo Video
+
+https://github.com/user-attachments/assets/YOUR_VIDEO_ID
+
+## Screenshots
+
+### Dashboard Overview
+![Dashboard Screenshot 1](./GC_dashboard1.png)
+
+### Trading View & Analytics Panel
+![Dashboard Screenshot 2](./GC_dashboard2.png)
+
+### Watchlist & Data Upload
+![Dashboard Screenshot 3](./GC_dashboard3.png)
+
+### Alerts & Monitoring
+![Dashboard Screenshot 4](./GC_Dashboard4.png)
 
 ## Folder Structure
 
@@ -88,9 +102,6 @@ This script will:
 5.  Launch the full stack.
 
 ### Dashboard Usage
-
-**Visual Interface:**
-![Dashboard Screenshot](/path/to/dashboard_screenshot.png)
 
 The dashboard is organized into three primary modules, designed for rapid technical analysis:
 
