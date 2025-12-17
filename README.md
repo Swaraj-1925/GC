@@ -38,7 +38,7 @@ The system utilizes a **Microservices-inspired Architecture** where each compone
 
 ## Demo Video
 
-https://github.com/user-attachments/assets/YOUR_VIDEO_ID
+<video src="./GC_Demp.mp4" controls width="100%"></video>
 
 ## Screenshots
 
