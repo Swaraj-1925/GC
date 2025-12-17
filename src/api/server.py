@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from ..shared.config import get_settings
 from ..shared.db.redis_client import RedisClient
 from ..shared.db.timescale_client import TimescaleClient
-from .endpoints import analytics, websocket_routes
+from .endpoints import analytics, websocket_routes, upload
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
+    app.include_router(upload.router, prefix="/api", tags=["Upload"])
     app.include_router(websocket_routes.router, prefix="/ws", tags=["WebSocket"])
 
     # Health check endpoint

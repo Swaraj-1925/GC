@@ -58,6 +58,18 @@ class RedisClient:
             await self._client.close()
         self._log("disconnect", None, "Disconnected from Redis")
 
+    def pipeline(self, transaction: bool = True) -> redis.client.Pipeline:
+        """
+        Create a Redis pipeline.
+
+        Args:
+            transaction: Whether to use MULTI/EXEC
+
+        Returns:
+            Redis pipeline object
+        """
+        return self._client.pipeline(transaction=transaction)
+
     def _log(self, operation: str, key: Optional[str], message: str, duration_ms: float = 0) -> None:
         """Log operation if callback is set."""
         if self.log_callback:

@@ -5,7 +5,15 @@ import api from '../services/api';
 import wsManager from '../services/websocket';
 
 /**
+ * Check if a symbol is an uploaded symbol (has UPLOAD: prefix)
+ */
+function isUploadedSymbol(symbol) {
+    return symbol && symbol.startsWith('UPLOAD:');
+}
+
+/**
  * Custom hook for chart data management
+ * Handles both live and uploaded symbol data
  */
 export function useChartData() {
 
@@ -15,11 +23,22 @@ export function useChartData() {
         setOhlcData,
         updateOhlcData,
         setLiveCandle,
-        setWsStatus
+        setWsStatus,
+        // Upload-specific state
+        clearUploadData,
+        setUploadStatus,
+        setUploadProgress,
+        appendUploadOhlc,
+        setUploadStats,
+        appendUploadSpread,
+        appendUploadZscore,
+        appendUploadVolatility
     } = useAppStore();
 
-    // Load initial OHLC data
-    const loadData = useCallback(async () => {
+    // Load initial OHLC data for LIVE symbols
+    const loadLiveData = useCallback(async () => {
+        if (isUploadedSymbol(selectedSymbol)) return;
+
         try {
             console.log('[Chart] Loading OHLC data for', selectedSymbol, timeframe);
             const data = await api.getOHLC(selectedSymbol, timeframe, 500);
@@ -35,21 +54,79 @@ export function useChartData() {
         }
     }, [selectedSymbol, timeframe, setOhlcData]);
 
-    // Connect WebSocket for live updates
-    useEffect(() => {
-        loadData();
+    // Load data for UPLOADED symbols via SSE
+    const loadUploadedData = useCallback(() => {
+        if (!isUploadedSymbol(selectedSymbol)) return null;
 
-        const disconnect = wsManager.connectOHLC(
+        console.log('[Upload] Starting SSE stream for', selectedSymbol);
+        clearUploadData();
+        setUploadStatus('streaming');
+
+        const cleanup = api.subscribeUploadStream(
             selectedSymbol,
-            timeframe,
-            (candle) => setLiveCandle(candle),
-            (status) => setWsStatus(status)
+            (event) => {
+                console.log('[SSE] Received:', event.type);
+
+                switch (event.type) {
+                    case 'status':
+                        setUploadProgress(event.message);
+                        break;
+                    case 'ohlc':
+                        appendUploadOhlc(event.data);
+                        break;
+                    case 'stats':
+                        setUploadStats(event.data);
+                        break;
+                    case 'spread':
+                        appendUploadSpread(event.data);
+                        break;
+                    case 'zscore':
+                        appendUploadZscore(event.data);
+                        break;
+                    case 'volatility':
+                        appendUploadVolatility(event.data);
+                        break;
+                    case 'complete':
+                        setUploadStatus('complete');
+                        setUploadProgress('All analytics computed');
+                        break;
+                    default:
+                        console.log('[SSE] Unknown event type:', event.type);
+                }
+            },
+            (error) => {
+                console.error('[SSE] Stream error:', error);
+                setUploadStatus('error');
+                setUploadProgress('Stream error');
+            }
         );
 
-        return () => disconnect();
-    }, [selectedSymbol, timeframe, loadData, updateOhlcData, setWsStatus]);
+        return cleanup;
+    }, [selectedSymbol, clearUploadData, setUploadStatus, setUploadProgress,
+        appendUploadOhlc, setUploadStats, appendUploadSpread, appendUploadZscore, appendUploadVolatility]);
 
-    return { reload: loadData };
+    // Connect WebSocket for live updates (only for live symbols)
+    useEffect(() => {
+        if (isUploadedSymbol(selectedSymbol)) {
+            // For uploaded symbols, use SSE stream
+            const cleanup = loadUploadedData();
+            return cleanup || (() => { });
+        } else {
+            // For live symbols, use WebSocket
+            loadLiveData();
+
+            const disconnect = wsManager.connectOHLC(
+                selectedSymbol,
+                timeframe,
+                (candle) => setLiveCandle(candle),
+                (status) => setWsStatus(status)
+            );
+
+            return () => disconnect();
+        }
+    }, [selectedSymbol, timeframe, loadLiveData, loadUploadedData, setLiveCandle, setWsStatus]);
+
+    return { reload: loadLiveData };
 }
 
 /**
@@ -113,8 +190,16 @@ export function useLightweightChart(containerRef) {
     const candleSeriesRef = useRef(null);
     const volumeSeriesRef = useRef(null);
 
-    const { ohlcData, chartType, setCrosshairOhlc } = useAppStore();
+    const {
+        ohlcData,
+        uploadOhlc,
+        selectedSymbol,
+        chartType,
+        setCrosshairOhlc
+    } = useAppStore();
 
+    // Select appropriate data source
+    const displayData = isUploadedSymbol(selectedSymbol) ? uploadOhlc : ohlcData;
 
     // Initialize chart
     useEffect(() => {
@@ -256,17 +341,16 @@ export function useLightweightChart(containerRef) {
             return;
         }
 
-        if (!ohlcData || ohlcData.length === 0) {
-            console.log('[Chart] No OHLC data to render');
+        if (!displayData || displayData.length === 0) {
+            console.log('[Chart] No data to render');
             return;
         }
 
-        console.log('[Chart] Rendering', ohlcData.length, 'candles');
-        console.log('[Chart] Sample candle:', ohlcData[ohlcData.length - 1]);
+        console.log('[Chart] Rendering', displayData.length, 'candles');
 
         // Format data for chart - ensure proper numeric types
         // Filter out candles with invalid low values (0, null, infinity)
-        const candleData = ohlcData
+        const candleData = displayData
             .filter(bar => bar.low > 0 && isFinite(Number(bar.low)))
             .map(bar => ({
                 time: Number(bar.time),
@@ -277,7 +361,7 @@ export function useLightweightChart(containerRef) {
             }))
             .sort((a, b) => a.time - b.time);  // Ensure sorted by time
 
-        const volumeData = ohlcData
+        const volumeData = displayData
             .filter(bar => bar.low > 0 && isFinite(Number(bar.low)))
             .map(bar => ({
                 time: Number(bar.time),
@@ -288,9 +372,6 @@ export function useLightweightChart(containerRef) {
             }))
             .sort((a, b) => a.time - b.time);
 
-        console.log('[Chart] First candle:', candleData[0]);
-        console.log('[Chart] Last candle:', candleData[candleData.length - 1]);
-
         try {
             candleSeriesRef.current.setData(candleData);
             volumeSeriesRef.current.setData(volumeData);
@@ -298,7 +379,7 @@ export function useLightweightChart(containerRef) {
         } catch (err) {
             console.error('[Chart] Error setting data:', err);
         }
-    }, [ohlcData, chartRef]);
+    }, [displayData, chartRef]);
 
     return { chart: chartRef, candleSeries: candleSeriesRef, volumeSeries: volumeSeriesRef };
 }

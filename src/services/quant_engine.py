@@ -126,7 +126,7 @@ class QuantEngine:
                 }
 
                 # Block for up to 500ms waiting for new data
-                results = await self.redis.stream_read(streams, count=100, block=500)
+                results = await self.redis.stream_read(streams, count=500, block=500)
 
                 if results:
                     for stream_name, entries in results:

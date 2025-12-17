@@ -114,7 +114,91 @@ class ApiService {
     getSummary() {
         return this.get('/summary');
     }
+
+    // ==================== Upload Endpoints ====================
+
+    /**
+     * Upload an NDJSON file with tick data
+     * @param {File} file - The NDJSON file
+     * @param {string} symbolName - Unique symbol name for the upload
+     * @returns {Promise<{session_id, symbol, tick_count, message}>}
+     */
+    async uploadFile(file, symbolName) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('symbol_name', symbolName);
+
+        const response = await fetch(`${API_BASE}/upload`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || `Upload failed: ${response.status}`);
+        }
+
+        return response.json();
+    }
+
+    /**
+     * Get list of uploaded symbols
+     * @returns {Promise<Array<{symbol, display_name, tick_count, uploaded_at}>>}
+     */
+    getUploadedSymbols() {
+        return this.get('/upload/symbols');
+    }
+
+    /**
+     * Delete an uploaded symbol
+     * @param {string} symbol - Symbol to delete
+     */
+    deleteUploadedSymbol(symbol) {
+        return this.delete(`/upload/${encodeURIComponent(symbol)}`);
+    }
+
+    /**
+     * Get OHLC data for an uploaded symbol
+     * @param {string} symbol - The uploaded symbol
+     * @param {string} interval - Candle interval (1s, 1m, 5m)
+     */
+    getUploadOHLC(symbol, interval = '1m') {
+        return this.get(`/upload/${encodeURIComponent(symbol)}/ohlc?interval=${interval}`);
+    }
+
+    /**
+     * Subscribe to upload analytics stream (SSE)
+     * @param {string} symbol - The uploaded symbol
+     * @param {function} onData - Callback for each data event
+     * @param {function} onError - Callback for errors
+     * @returns {function} - Cleanup function to close connection
+     */
+    subscribeUploadStream(symbol, onData, onError) {
+        const encodedSymbol = encodeURIComponent(symbol);
+        const eventSource = new EventSource(`${API_BASE}/upload/${encodedSymbol}/stream`);
+
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                onData(data);
+            } catch (e) {
+                console.error('[SSE] Parse error:', e);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error('[SSE] Error:', error);
+            onError?.(error);
+            eventSource.close();
+        };
+
+        // Return cleanup function
+        return () => {
+            eventSource.close();
+        };
+    }
 }
 
 export const api = new ApiService();
 export default api;
+

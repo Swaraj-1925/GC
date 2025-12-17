@@ -54,6 +54,11 @@ class MarketGateway:
         self.symbols = symbols or self.settings.SYMBOLS
         self.state = GatewayState()
         self.redis: Optional[RedisClient] = None
+        
+        # Trade buffer: symbol -> list of trade dicts
+        self.trade_buffer: Dict[str, List[dict]] = {s: [] for s in self.symbols}
+        self.batch_size = 50
+        self.flush_interval = 0.1  # 100ms
 
         # Initialize tick counters
         for symbol in self.symbols:
@@ -76,6 +81,9 @@ class MarketGateway:
 
         # Add heartbeat task
         tasks.append(asyncio.create_task(self._heartbeat()))
+        
+        # Add buffer flush task
+        tasks.append(asyncio.create_task(self._buffer_flusher()))
 
         # Wait for all tasks (they run until stopped)
         try:
@@ -89,6 +97,9 @@ class MarketGateway:
         """Stop the gateway service."""
         logger.info("Stopping MarketGateway...")
         self.state.running = False
+        
+        # Flush remaining buffers
+        await self._flush_all_buffers()
 
         # Close all WebSocket connections
         for symbol, ws in self.state.sockets.items():
@@ -106,11 +117,6 @@ class MarketGateway:
     async def _binance_listener(self, symbol: str) -> None:
         """
         Listen to Binance WebSocket for a single symbol.
-
-        Implements reconnection with exponential backoff.
-
-        Args:
-            symbol: Trading pair symbol (lowercase, e.g., 'btcusdt')
         """
         url = f"{self.settings.BINANCE_WS_URL}/{symbol}@trade"
         reconnect_delay = 1.0
@@ -125,15 +131,14 @@ class MarketGateway:
                 ) as ws:
                     self.state.sockets[symbol] = ws
                     logger.info(f"Connected to WebSocket: {symbol}")
-                    reconnect_delay = 1.0  # Reset on successful connection
+                    reconnect_delay = 1.0
 
                     while self.state.running:
                         try:
-                            # Use timeout to allow checking running state
                             message = await asyncio.wait_for(ws.recv(), timeout=1.0)
-                            await self._process_trade(symbol, message)
+                            self._buffer_trade(symbol, message)
                         except asyncio.TimeoutError:
-                            continue  # Loop and check running state
+                            continue
                         except ConnectionClosed:
                             logger.warning(f"WebSocket closed for {symbol}")
                             break
@@ -148,67 +153,70 @@ class MarketGateway:
                 await asyncio.sleep(reconnect_delay)
                 reconnect_delay = min(reconnect_delay * 2, self.state.max_delay)
 
-    async def _process_trade(self, symbol: str, message: str) -> None:
-        """
-        Process a trade message from Binance.
-
-        Args:
-            symbol: Symbol this trade belongs to
-            message: Raw JSON message from WebSocket
-        """
+    def _buffer_trade(self, symbol: str, message: str) -> None:
+        """Buffer trade for batch processing."""
         try:
             data = json.loads(message)
-
-            # Binance trade event format:
-            # {
-            #   "e": "trade",
-            #   "E": event_time,
-            #   "s": symbol,
-            #   "t": trade_id,
-            #   "p": price,
-            #   "q": quantity,
-            #   "T": trade_time,
-            #   "m": is_buyer_maker
-            # }
-
-            if data.get("e") != "trade":
-                return
-
-            # Create normalized tick
-            tick = TickData(
-                symbol=data["s"],
-                tradeId=data["t"],
-                price=float(data["p"]),
-                qty=float(data["q"]),
-                timestamp=data["T"],
-                isBuyerMaker=data["m"]
-            )
-
-            now = int(time.time() * 1000)
-            latency_ms = now - tick.timestamp
-
-            # Publish to Redis Stream
-            stream_key = RedisKeys.tick_stream(tick.symbol)
-            await self.redis.stream_add(stream_key, tick.to_redis_dict())
-
-            # Publish to Redis TimeSeries (for OHLC aggregation)
-            ts_key = RedisKeys.price_timeseries(tick.symbol)
-            try:
-                await self.redis.ts_add(ts_key, tick.timestamp, tick.price)
-            except Exception as e:
-                # TimeSeries might not be available, log and continue
-                logger.debug(f"TimeSeries write failed (module may not be loaded): {e}")
-
-            # Update stats
-            self.state.tick_count[symbol] = self.state.tick_count.get(symbol, 0) + 1
-            self.state.last_tick_time[symbol] = now
-
-            # if latency_ms > 5000:
-            #     logger.warning(f"High latency for {symbol}: {latency_ms}ms")
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse message: {e}")
+            if data.get("e") == "trade":
+                self.trade_buffer[symbol].append(data)
         except Exception as e:
-            logger.error(f"Error processing trade for {symbol}: {e}")
+            logger.error(f"Error buffering trade for {symbol}: {e}")
+
+    async def _buffer_flusher(self) -> None:
+        """Periodic task to flush trade buffers."""
+        while self.state.running:
+            await asyncio.sleep(self.flush_interval)
+            await self._flush_all_buffers()
+
+    async def _flush_all_buffers(self) -> None:
+        """Flush all trade buffers to Redis using pipeline."""
+        if not self.redis:
+            return
+
+        for symbol in self.symbols:
+            buffer = self.trade_buffer[symbol]
+            if not buffer:
+                continue
+
+            # Swap buffer to process it, clear original
+            trades = buffer[:]
+            self.trade_buffer[symbol] = []
+
+            try:
+                pipeline = self.redis.pipeline()
+                
+                # Add all trades to pipeline
+                for data in trades:
+                    tick = TickData(
+                        symbol=data["s"],
+                        tradeId=data["t"],
+                        price=float(data["p"]),
+                        qty=float(data["q"]),
+                        timestamp=data["T"],
+                        isBuyerMaker=data["m"]
+                    )
+                    
+                    # Redis Stream
+                    stream_key = RedisKeys.tick_stream(tick.symbol)
+                    pipeline.xadd(stream_key, tick.to_redis_dict(), minid=str(int(time.time()*1000) - 86400000))
+                    
+                    # Redis TimeSeries
+                    ts_key = RedisKeys.price_timeseries(tick.symbol)
+                    # Use execute_command for TS.ADD in pipeline
+                    pipeline.execute_command(
+                        "TS.ADD", ts_key, tick.timestamp, tick.price,
+                        "RETENTION", 86400000, "ON_DUPLICATE", "LAST"
+                    )
+
+                    # Update stats
+                    self.state.tick_count[symbol] = self.state.tick_count.get(symbol, 0) + 1
+                    self.state.last_tick_time[symbol] = int(time.time() * 1000)
+
+                # Execute pipeline
+                await pipeline.execute()
+                
+            except Exception as e:
+                logger.error(f"Error flushing buffer for {symbol}: {e}")
 
     async def _heartbeat(self) -> None:
         """Periodic heartbeat logging."""

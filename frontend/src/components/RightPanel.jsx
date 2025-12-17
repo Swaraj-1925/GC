@@ -30,14 +30,66 @@ function StatRow({ label, value, color }) {
 }
 
 export function AnalyticsPanel() {
-    const { pairAnalytics, selectedSymbol, pairSymbol } = useAppStore();
+    const {
+        pairAnalytics,
+        selectedSymbol,
+        pairSymbol,
+        uploadedSymbols,
+        uploadStats,
+        uploadProgress,
+        uploadStatus
+    } = useAppStore();
+
     useAnalytics();
+
+    const isUploaded = uploadedSymbols.some(s => s.symbol === selectedSymbol);
 
     // Format values
     const formatNumber = (num, decimals = 4) => {
         if (num === null || num === undefined) return '--';
         return Number(num).toFixed(decimals);
     };
+
+    if (isUploaded) {
+        return (
+            <div className="panel-content">
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                    Uploaded File: {selectedSymbol.replace('UPLOAD:', '')}
+                </div>
+
+                {/* Upload Status */}
+                {uploadStatus !== 'complete' && uploadStatus !== 'idle' && (
+                    <div className="analytics-widget" style={{ borderColor: 'var(--accent-blue)', borderStyle: 'solid', borderWidth: 1 }}>
+                        <div className="analytics-title" style={{ color: 'var(--accent-blue)' }}>Processing</div>
+                        <div style={{ fontSize: 13, marginBottom: 8 }}>{uploadProgress}</div>
+                        <div className="loading-spinner" style={{ width: 16, height: 16 }} />
+                    </div>
+                )}
+
+                {/* Price Stats */}
+                <div className="analytics-widget">
+                    <div className="analytics-title">Price Summary</div>
+                    <StatRow label="Min Price" value={formatNumber(uploadStats?.price_min, 2)} />
+                    <StatRow label="Max Price" value={formatNumber(uploadStats?.price_max, 2)} />
+                    <StatRow label="Mean Price" value={formatNumber(uploadStats?.price_mean, 2)} />
+                    <StatRow
+                        label="Change %"
+                        value={`${formatNumber(uploadStats?.price_change_pct, 2)}%`}
+                        color={uploadStats?.price_change_pct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}
+                    />
+                </div>
+
+                {/* Volatility & Duration */}
+                <div className="analytics-widget">
+                    <div className="analytics-title">Metrics</div>
+                    <StatRow label="Tick Count" value={uploadStats?.tick_count} />
+                    <StatRow label="Duration (m)" value={formatNumber(uploadStats?.duration_minutes, 1)} />
+                    <StatRow label="VWAP" value={formatNumber(uploadStats?.vwap, 2)} />
+                    <StatRow label="Std Dev" value={formatNumber(uploadStats?.price_std, 4)} />
+                </div>
+            </div>
+        );
+    }
 
     const zScore = pairAnalytics?.z_score;
     const zScoreColor = !zScore ? 'var(--text-primary)' :
@@ -176,16 +228,55 @@ export function AlertsPanel() {
 }
 
 export function WatchlistPanel() {
-    const { symbols, selectedSymbol, setSelectedSymbol } = useAppStore();
+    const {
+        symbols,
+        selectedSymbol,
+        setSelectedSymbol,
+        uploadedSymbols,
+        setShowUploadModal,
+        clearUploadData
+    } = useAppStore();
 
     useEffect(() => {
         api.getSymbols()
             .then(data => useAppStore.setState({ symbols: data }))
             .catch(console.error);
+
+        // Also load any uploaded symbols
+        api.getUploadedSymbols()
+            .then(data => {
+                if (data && data.length > 0) {
+                    useAppStore.setState({
+                        uploadedSymbols: data.map(s => ({
+                            symbol: s.symbol,
+                            displayName: s.display_name,
+                            tickCount: s.tick_count,
+                            uploadedAt: s.uploaded_at,
+                            isUploaded: true
+                        }))
+                    });
+                }
+            })
+            .catch(console.error);
     }, []);
+
+    const handleUploadSelect = (symbol) => {
+        clearUploadData();
+        setSelectedSymbol(symbol);
+    };
 
     return (
         <div className="panel-content">
+            {/* Upload Button */}
+            <button
+                className="btn btn-primary"
+                style={{ width: '100%', marginBottom: 16 }}
+                onClick={() => setShowUploadModal(true)}
+            >
+                📤 Upload Data
+            </button>
+
+            {/* Live Symbols */}
             <div className="analytics-title">Symbols</div>
             {symbols.map(sym => (
                 <div
@@ -203,6 +294,31 @@ export function WatchlistPanel() {
                     </div>
                 </div>
             ))}
+
+            {/* Uploaded Symbols */}
+            {uploadedSymbols.length > 0 && (
+                <>
+                    <div className="analytics-title" style={{ marginTop: 16 }}>Uploaded Data</div>
+                    {uploadedSymbols.map(sym => (
+                        <div
+                            key={sym.symbol}
+                            className="analytics-widget"
+                            style={{
+                                cursor: 'pointer',
+                                background: sym.symbol === selectedSymbol ? 'var(--accent-blue)' : undefined
+                            }}
+                            onClick={() => handleUploadSelect(sym.symbol)}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 500 }}>📁 {sym.displayName}</span>
+                                <span className="text-muted" style={{ fontSize: 11 }}>
+                                    {sym.tickCount} ticks
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </>
+            )}
         </div>
     );
 }

@@ -49,7 +49,7 @@ async def websocket_ticks(websocket: WebSocket, symbol: str):
             try:
                 results = await redis.stream_read(
                     {stream_key: last_id},
-                    count=10,
+                    count=500,
                     block=500  # 500ms block
                 )
 
@@ -113,6 +113,11 @@ async def websocket_analytics(websocket: WebSocket, symbol: str):
                 pass
             except WebSocketDisconnect:
                 break
+            except RuntimeError as e:
+                # Catch Starlette "WebSocket is not connected" error
+                if "not connected" in str(e):
+                    break
+                raise e
 
             # Poll for analytics updates
             try:
@@ -184,6 +189,11 @@ async def websocket_alerts(websocket: WebSocket):
                 pass
             except WebSocketDisconnect:
                 break
+            except RuntimeError as e:
+                # Catch Starlette "WebSocket is not connected" error
+                if "not connected" in str(e):
+                    break
+                raise e
 
             # Check for new alerts
             try:
@@ -245,6 +255,11 @@ async def websocket_pair_analytics(
                 pass
             except WebSocketDisconnect:
                 break
+            except RuntimeError as e:
+                # Catch Starlette "WebSocket is not connected" error
+                if "not connected" in str(e):
+                    break
+                raise e
 
             try:
                 data = await redis.hash_get_all(analytics_key)
@@ -347,12 +362,18 @@ async def websocket_ohlc(
                 pass
             except WebSocketDisconnect:
                 break
+            except RuntimeError as e:
+                # Catch Starlette "WebSocket is not connected" error
+                if "not connected" in str(e):
+                    logger.warning(f"WebSocket disconnected (RuntimeError): {e}")
+                    break
+                raise e
 
             # Read new ticks from Redis stream
             try:
                 results = await redis.stream_read(
                     {stream_key: last_id},
-                    count=50,
+                    count=1000,
                     block=200  # 200ms block
                 )
 
@@ -372,27 +393,56 @@ async def websocket_ohlc(
 
                             # Check if we need to start a new candle
                             if candle_time > last_candle_time:
-                                # Send completed candle if we have one with valid data
-                                if (last_candle_time > 0 and 
-                                    current_candle["trade_count"] > 0 and
-                                    current_candle["low"] > 0 and
-                                    current_candle["low"] != float('inf')):
-                                    await websocket.send_json({
-                                        **current_candle,
-                                        "complete": True
-                                    })
+                                # initialize if first run
+                                if last_candle_time == 0:
+                                    last_candle_time = candle_time
+                                    current_candle = {
+                                        "time": candle_time,
+                                        "open": price,
+                                        "high": price,
+                                        "low": price,
+                                        "close": price,
+                                        "volume": qty,
+                                        "trade_count": 1
+                                    }
+                                else:
+                                    # Send completed candle
+                                    if (current_candle["trade_count"] > 0 and 
+                                        current_candle["low"] > 0 and 
+                                        current_candle["low"] != float('inf')):
+                                        await websocket.send_json({
+                                            **current_candle,
+                                            "complete": True
+                                        })
+                                    
+                                    # Fill gaps if we skipped intervals
+                                    next_expected_time = last_candle_time + interval_seconds
+                                    while next_expected_time < candle_time:
+                                        # Emit flat candle for missing interval
+                                        flat_price = current_candle["close"]
+                                        await websocket.send_json({
+                                            "time": next_expected_time,
+                                            "open": flat_price,
+                                            "high": flat_price,
+                                            "low": flat_price,
+                                            "close": flat_price,
+                                            "volume": 0,
+                                            "trade_count": 0,
+                                            "complete": True
+                                        })
+                                        next_expected_time += interval_seconds
 
-                                # Start new candle
-                                last_candle_time = candle_time
-                                current_candle = {
-                                    "time": candle_time,
-                                    "open": price,
-                                    "high": price,
-                                    "low": price,
-                                    "close": price,
-                                    "volume": qty,
-                                    "trade_count": 1
-                                }
+                                    # Start new candle
+                                    last_candle_time = candle_time
+                                    current_candle = {
+                                        "time": candle_time,
+                                        "open": price,
+                                        "high": price,
+                                        "low": price,
+                                        "close": price,
+                                        "volume": qty,
+                                        "trade_count": 1
+                                    }
                             else:
                                 # Update current candle
                                 current_candle["high"] = max(current_candle["high"], price)

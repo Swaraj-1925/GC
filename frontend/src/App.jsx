@@ -4,10 +4,13 @@ import { Header, Sidebar } from './components/Header';
 import PriceChart from './components/PriceChart';
 import RightPanel from './components/RightPanel';
 import AlertModal from './components/AlertModal';
+import UploadModal from './components/UploadModal';
 import wsManager from './services/websocket';
 import useAppStore from './stores/appStore';
 
 function App() {
+  const { showUploadModal, setShowUploadModal } = useAppStore();
+
   // Connect to alerts WebSocket on mount
   useEffect(() => {
     const disconnect = wsManager.connectAlerts(
@@ -30,8 +33,13 @@ function App() {
         <RightPanel />
       </div>
       <AlertModal />
+      <UploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+      />
     </div>
   );
 }
 
 export default App;
+

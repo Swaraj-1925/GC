@@ -34,6 +34,17 @@ export const useAppStore = create((set, get) => ({
     rightPanelTab: 'analytics', // 'analytics' | 'alerts' | 'watchlist'
     showAlertModal: false,
 
+    // ==================== Upload State ====================
+    uploadedSymbols: [],  // List of uploaded symbol info
+    showUploadModal: false,
+    uploadStatus: 'idle',  // idle | uploading | streaming | complete | error
+    uploadProgress: '',  // Current processing step
+    uploadOhlc: [],  // OHLC candles for uploaded data
+    uploadStats: null,  // Summary statistics
+    uploadSpread: [],  // Spread data
+    uploadZscore: [],  // Z-score data
+    uploadVolatility: [],  // Volatility data
+
     // Actions
     setSymbols: (symbols) => set({ symbols }),
     setSelectedSymbol: (symbol) => set({ selectedSymbol: symbol }),
@@ -100,6 +111,59 @@ export const useAppStore = create((set, get) => ({
     setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
     setShowAlertModal: (show) => set({ showAlertModal: show }),
     setCrosshairOhlc: (ohlc) => set({ crosshairOhlc: ohlc }),
+
+    // ==================== Upload Actions ====================
+    setShowUploadModal: (show) => set({ showUploadModal: show }),
+
+    addUploadedSymbol: (symbolInfo) => set((state) => ({
+        uploadedSymbols: [...state.uploadedSymbols, symbolInfo]
+    })),
+
+    removeUploadedSymbol: (symbol) => set((state) => ({
+        uploadedSymbols: state.uploadedSymbols.filter(s => s.symbol !== symbol)
+    })),
+
+    setUploadedSymbols: (symbols) => set({ uploadedSymbols: symbols }),
+
+    setUploadStatus: (status) => set({ uploadStatus: status }),
+    setUploadProgress: (progress) => set({ uploadProgress: progress }),
+
+    // Clear upload data when switching away from uploaded symbol
+    clearUploadData: () => set({
+        uploadOhlc: [],
+        uploadStats: null,
+        uploadSpread: [],
+        uploadZscore: [],
+        uploadVolatility: [],
+        uploadStatus: 'idle',
+        uploadProgress: ''
+    }),
+
+    // Append data progressively from SSE stream
+    appendUploadOhlc: (candles) => set((state) => ({
+        uploadOhlc: [...state.uploadOhlc, ...candles]
+    })),
+
+    setUploadStats: (stats) => set({ uploadStats: stats }),
+
+    appendUploadSpread: (data) => set((state) => ({
+        uploadSpread: [...state.uploadSpread, ...data]
+    })),
+
+    appendUploadZscore: (data) => set((state) => ({
+        uploadZscore: [...state.uploadZscore, ...data]
+    })),
+
+    appendUploadVolatility: (data) => set((state) => ({
+        uploadVolatility: [...state.uploadVolatility, ...data]
+    })),
+
+    // Check if current symbol is an uploaded symbol
+    isUploadedSymbol: () => {
+        const { selectedSymbol, uploadedSymbols } = get();
+        return uploadedSymbols.some(s => s.symbol === selectedSymbol);
+    },
 }));
 
 export default useAppStore;
+
