@@ -47,7 +47,6 @@ The system utilizes a **Microservices-inspired Architecture** where each compone
 ### Watchlist & Data Upload
 ![Dashboard Screenshot 3](./GC_dashboard3.png)
 
-### Alerts & Monitoring
 ![Dashboard Screenshot 4](./GC_Dashboard4.png)
 
 ## Folder Structure
